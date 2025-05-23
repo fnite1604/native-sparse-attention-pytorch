@@ -241,7 +241,7 @@ class SparseAttention(Module):
 
         qkv_split = (dim_inner, dim_kv_inner, dim_kv_inner)
 
-        self.to_qkv = nn.Linear(dim, sum(qkv_split), bias = False)
+        self.to_qkv = nn.Linear(dim, sum(qkv_split), bias = True)
 
         self.qkv_split = qkv_split
 
@@ -533,18 +533,18 @@ class SparseAttention(Module):
 
         strategy_weighted_combine = self.to_strategy_combine(inp)
 
-        out = einsum(strategy_weighted_combine, stack([compressed_attn_out, fine_attn_out, sliding_window_attn_out]), 'b h n s, s b h n d -> b h n d')
+        out_weights = einsum(strategy_weighted_combine, stack([compressed_attn_out, fine_attn_out, sliding_window_attn_out]), 'b h n s, s b h n d -> b h n d')
 
         # merge heads and combine them
 
-        out = self.merge_heads(out)
+        out = self.merge_heads(out_weights)
 
         out = self.combine_heads(out)
 
         if not return_cache:
-            return out
+            return out, out_weights
 
-        return out, (cache_kv, cache_compressed_kv)
+        return out, (cache_kv, cache_compressed_kv), out_weights
 
     def forward(
         self,
@@ -853,15 +853,15 @@ class SparseAttention(Module):
 
         strategy_weighted_combine = self.to_strategy_combine(inp)
 
-        out = einsum(strategy_weighted_combine, stack([compressed_attn_out, fine_attn_out, sliding_window_attn_out]), 'b h n s, s b h n d -> b h n d')
+        out_weights = einsum(strategy_weighted_combine, stack([compressed_attn_out, fine_attn_out, sliding_window_attn_out]), 'b h n s, s b h n d -> b h n d')
 
         # merge heads and combine them
 
-        out = self.merge_heads(out)
+        out = self.merge_heads(out_weights)
 
         out = self.combine_heads(out)
 
         if not return_cache:
-            return out
+            return out, out_weights
 
-        return out, (cache_kv, cache_compressed_kv)
+        return out, (cache_kv, cache_compressed_kv), out_weights
